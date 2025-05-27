@@ -1,5 +1,7 @@
+import 'package:agro_mas/pages/user_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,8 +15,11 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  // Diccionario de credenciales válidas
-  final Map<String, String> _validCredentials = {
+  // Instancia del UserStorage
+  final UserStorage _userStorage = UserStorage();
+
+  // Diccionario de credenciales válidas (mantenemos algunas por defecto)
+  final Map<String, String> _defaultCredentials = {
     'agricultor@agromas.com': 'agromas123',
     'admin@agromas.com': 'admin123'
   };
@@ -24,19 +29,57 @@ class _LoginPageState extends State<LoginPage> {
     String email = _emailController.text.trim();
     String password = _passwordController.text.trim();
 
-    // Validación de credenciales
-    if (_validCredentials.containsKey(email) &&
-        _validCredentials[email] == password) {
+    // Validar campos vacíos
+    if (email.isEmpty || password.isEmpty) {
+      _showErrorMessage('Por favor completa todos los campos');
+      return;
+    }
+
+    // Primero verificar credenciales por defecto
+    bool isDefaultUser = _defaultCredentials.containsKey(email) &&
+        _defaultCredentials[email] == password;
+
+    // Luego verificar usuarios registrados en UserStorage
+    bool isRegisteredUser = _userStorage.validateCredentials(email, password);
+
+    if (isDefaultUser || isRegisteredUser) {
+      // Obtener información del usuario si está registrado
+      Map<String, dynamic>? userData;
+      if (isRegisteredUser) {
+        userData = _userStorage.getUserByEmail(email);
+      }
+
       // Navegar a la página de inicio si las credenciales son correctas
-      Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (context) => HomePage(email: email)));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomePage(
+            email: email,
+            userData: userData,
+          ),
+        ),
+      );
     } else {
       // Mostrar mensaje de error
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Correo o contraseña incorrectos'),
-        backgroundColor: Colors.red,
-      ));
+      _showErrorMessage('Correo o contraseña incorrectos');
     }
+  }
+
+  // Método para mostrar mensajes de error
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -94,6 +137,7 @@ class _LoginPageState extends State<LoginPage> {
                       padding: const EdgeInsets.only(left: 20.0),
                       child: TextField(
                         controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
                           border: InputBorder.none,
                           hintText: 'Agricultor@agromas.com',
@@ -169,10 +213,10 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 20),
 
                 //RECUPERAR CONTRASEÑA Y REGISTRARSE
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Text(
+                    const Text(
                       'Recuperar\n contraseña',
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -180,14 +224,46 @@ class _LoginPageState extends State<LoginPage> {
                           color: Color(0xff1026f3)),
                       textAlign: TextAlign.center,
                     ),
-                    Text(
-                      'Registrase',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                      textAlign: TextAlign.center,
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const RegisterPage()),
+                        );
+                      },
+                      child: const Text(
+                        'Registrase',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Color(0xff1026f3)),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ],
-                )
+                ),
+
+                // Botón para mostrar estadísticas (solo para debug)
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: () {
+                    _userStorage.printAllUsers();
+                    final stats = _userStorage.getStatistics();
+                    print('Estadísticas: $stats');
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    child: Text(
+                      'Debug: Ver usuarios registrados (${_userStorage.getTotalUsers()})',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
               ]),
             ),
           ),
@@ -200,8 +276,13 @@ class _LoginPageState extends State<LoginPage> {
 // Página de inicio después del login
 class HomePage extends StatelessWidget {
   final String email;
+  final Map<String, dynamic>? userData;
 
-  const HomePage({super.key, required this.email});
+  const HomePage({
+    super.key,
+    required this.email,
+    this.userData,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -209,22 +290,108 @@ class HomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Inicio'),
         backgroundColor: const Color(0xff1026f3),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
+        ],
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Sesión Iniciada',
-              style:
-                  GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Correo: $email',
-              style: GoogleFonts.outfit(fontSize: 18),
-            )
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Bienvenido a AgroMas',
+                style: GoogleFonts.outfit(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xff1026f3),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Información de la cuenta:',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Correo: $email',
+                      style: GoogleFonts.outfit(fontSize: 16),
+                    ),
+
+                    // Mostrar información adicional si el usuario está registrado
+                    if (userData != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Nombre: ${userData!['name']}',
+                        style: GoogleFonts.outfit(fontSize: 16),
+                      ),
+                      if (userData!['selectedCrop'] != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Cultivo: ${userData!['selectedCrop']}',
+                          style: GoogleFonts.outfit(fontSize: 16),
+                        ),
+                      ],
+                      if (userData!['location'] != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Ubicación: ${userData!['location']}',
+                          style: GoogleFonts.outfit(fontSize: 16),
+                        ),
+                      ],
+                      if (userData!['experience'] != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Experiencia: ${userData!['experience']}',
+                          style: GoogleFonts.outfit(fontSize: 16),
+                        ),
+                      ],
+                    ] else ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Usuario por defecto',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+              Text(
+                'Sesión iniciada correctamente',
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  color: Colors.green.shade700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:agro_mas/src/custom/configurations.dart';
 import 'package:agro_mas/pages/login_page.dart';
+import 'package:agro_mas/pages/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -21,7 +22,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Login App',
       initialRoute: '/login',
-      routes: {'/login': (context) => const LoginPage()},
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+      },
     );
   }
 }

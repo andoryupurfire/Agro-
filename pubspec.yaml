@@ -38,6 +38,7 @@ dependencies:
 flutter:
   assets:
     - assets/images/agromas.png
+    - assets/images/register.png
 
   uses-material-design: true
 
