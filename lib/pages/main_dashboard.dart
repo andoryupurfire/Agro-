@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import '/screens/plant_diagnosis_screen.dart';
 
 class MainDashboard extends StatefulWidget {
@@ -18,19 +21,275 @@ class MainDashboard extends StatefulWidget {
 
 class _MainDashboardState extends State<MainDashboard> {
   int _selectedIndex = 0;
+  double? currentTemp;
+  String currentLocation = 'Cargando...';
+  bool isLoadingLocation = true;
+  bool hasLocationError = false;
 
   // Datos simulados para la demostración
   String get userName => widget.userData?['name'] ?? 'Brayan';
-  String get userLocation => widget.userData?['location'] ?? 'Barrancabermeja';
   String get userCrop => widget.userData?['selectedCrop'] ?? 'Tomate';
-  
-  // Temperatura simulada
-  int currentTemperature = 36;
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      setState(() {
+        isLoadingLocation = true;
+        hasLocationError = false;
+        currentLocation = 'Verificando permisos...';
+      });
+
+      // 1. Verificar si el servicio de ubicación está habilitado
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          hasLocationError = true;
+          currentLocation = 'GPS desactivado';
+          isLoadingLocation = false;
+        });
+        
+        // Mostrar diálogo para activar GPS
+        _showLocationServiceDialog();
+        return;
+      }
+
+      // 2. Verificar permisos actuales
+      LocationPermission permission = await Geolocator.checkPermission();
+      
+      // 3. Si el permiso está denegado, solicitarlo
+      if (permission == LocationPermission.denied) {
+        setState(() {
+          currentLocation = 'Solicitando permisos...';
+        });
+        
+        permission = await Geolocator.requestPermission();
+        
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            hasLocationError = true;
+            currentLocation = 'Permiso denegado';
+            isLoadingLocation = false;
+          });
+          _showPermissionDeniedDialog();
+          return;
+        }
+      }
+
+      // 4. Si el permiso está denegado permanentemente
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          hasLocationError = true;
+          currentLocation = 'Sin permisos';
+          isLoadingLocation = false;
+        });
+        _showPermissionDeniedForeverDialog();
+        return;
+      }
+
+      // 5. Obtener la ubicación con configuración mejorada
+      setState(() {
+        currentLocation = 'Obteniendo ubicación...';
+      });
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      ).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () {
+          throw Exception('Timeout obteniendo ubicación');
+        },
+      );
+
+      print('Ubicación obtenida: ${position.latitude}, ${position.longitude}');
+
+      // 6. Obtener datos del clima
+      await _getWeatherData(position.latitude, position.longitude);
+      
+    } catch (e) {
+      print('Error obteniendo ubicación: $e');
+      setState(() {
+        hasLocationError = true;
+        currentLocation = 'Error de ubicación';
+        isLoadingLocation = false;
+      });
+      
+      // Intentar usar ubicación aproximada como fallback
+      _tryLastKnownPosition();
+    }
+  }
+
+  Future<void> _tryLastKnownPosition() async {
+    try {
+      Position? lastPosition = await Geolocator.getLastKnownPosition();
+      if (lastPosition != null) {
+        print('Usando última ubicación conocida: ${lastPosition.latitude}, ${lastPosition.longitude}');
+        await _getWeatherData(lastPosition.latitude, lastPosition.longitude);
+      }
+    } catch (e) {
+      print('Error obteniendo última ubicación: $e');
+      // Si todo falla, usar coordenadas de Barrancabermeja como fallback
+      _useFallbackLocation();
+    }
+  }
+
+  void _useFallbackLocation() {
+    // Coordenadas de Barrancabermeja, Santander
+    _getWeatherData(7.0653, -73.8547);
+  }
+
+  Future<void> _getWeatherData(double lat, double lon) async {
+    const apiKey = 'b805e5e45416a3e8ae27c35a2566a732';
+    final url = Uri.parse(
+        'https://api.openweathermap.org/data/2.5/weather?lat=$lat&lon=$lon&appid=$apiKey&units=metric&lang=es');
+
+    try {
+      setState(() {
+        currentLocation = 'Obteniendo clima...';
+      });
+
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 10),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          currentTemp = data['main']['temp']?.toDouble();
+          currentLocation = data['name'] ?? 'Ubicación desconocida';
+          isLoadingLocation = false;
+          hasLocationError = false;
+        });
+        print('Clima obtenido para: $currentLocation, Temp: $currentTemp°C');
+      } else {
+        throw Exception('Error en API: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error obteniendo clima: $e');
+      setState(() {
+        hasLocationError = true;
+        currentLocation = 'Error de conexión';
+        isLoadingLocation = false;
+      });
+    }
+  }
+
+  // Diálogos informativos
+  void _showLocationServiceDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'GPS Desactivado',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Para obtener información del clima necesitas activar el GPS en tu dispositivo.',
+            style: GoogleFonts.outfit(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancelar', style: GoogleFonts.outfit()),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await Geolocator.openLocationSettings();
+                // Reintentar después de 2 segundos
+                Future.delayed(const Duration(seconds: 2), () {
+                  _getCurrentLocation();
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff2E7D32),
+              ),
+              child: Text('Abrir Configuración', style: GoogleFonts.outfit(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPermissionDeniedDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Permiso de Ubicación',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'La aplicación necesita acceso a tu ubicación para mostrar información del clima local.',
+            style: GoogleFonts.outfit(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancelar', style: GoogleFonts.outfit()),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _getCurrentLocation(); // Reintentar
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff2E7D32),
+              ),
+              child: Text('Intentar de nuevo', style: GoogleFonts.outfit(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPermissionDeniedForeverDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Permisos Requeridos',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Los permisos de ubicación están permanentemente denegados. Ve a Configuración > Aplicaciones > Tu App > Permisos para habilitarlos.',
+            style: GoogleFonts.outfit(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Cancelar', style: GoogleFonts.outfit()),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await Geolocator.openAppSettings();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff2E7D32),
+              ),
+              child: Text('Abrir Configuración', style: GoogleFonts.outfit(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xff2E7D32), // Verde principal
+      backgroundColor: const Color(0xff2E7D32),
       body: SafeArea(
         child: Column(
           children: [
@@ -41,7 +300,7 @@ class _MainDashboardState extends State<MainDashboard> {
             Expanded(
               child: Container(
                 decoration: const BoxDecoration(
-                  color: Color(0xffF5F5F5), // Fondo gris claro
+                  color: Color(0xffF5F5F5),
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(30),
                     topRight: Radius.circular(30),
@@ -129,9 +388,12 @@ class _MainDashboardState extends State<MainDashboard> {
                 // Temperatura
                 _buildInfoItem(
                   Icons.thermostat_outlined,
-                  '${currentTemperature}°C',
+                  currentTemp != null 
+                    ? '${currentTemp!.toStringAsFixed(1)}°C' 
+                    : '--°C',
                   Colors.orange,
-                  customImage: 'assets/images/temperatura.png', // Tu icono personalizado
+                  customImage: 'assets/images/temperatura.png',
+                  isLoading: isLoadingLocation,
                 ),
                 
                 // Cultivo
@@ -139,15 +401,20 @@ class _MainDashboardState extends State<MainDashboard> {
                   Icons.local_florist,
                   userCrop,
                   const Color(0xff2E7D32),
-                  customImage: 'assets/images/icono_tomate.png', // Tu icono personalizado
+                  customImage: 'assets/images/icono_tomate.png',
                 ),
                 
-                // Ubicación
-                _buildInfoItem(
-                  Icons.location_on,
-                  userLocation.length > 8 ? '${userLocation.substring(0, 8)}...' : userLocation,
-                  Colors.red,
-                  customImage: 'assets/icons/ubicacion.png', // Tu icono personalizado
+                // Ubicación con botón de reintentar
+                GestureDetector(
+                  onTap: hasLocationError ? _getCurrentLocation : null,
+                  child: _buildInfoItem(
+                    Icons.location_on,
+                    _truncateLocation(currentLocation),
+                    hasLocationError ? Colors.red : Colors.blue,
+                    customImage: 'assets/icons/ubicacion.png',
+                    isLoading: isLoadingLocation,
+                    hasError: hasLocationError,
+                  ),
                 ),
               ],
             ),
@@ -157,48 +424,84 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String text, Color color, {String? customImage}) {
+  String _truncateLocation(String location) {
+    if (location.length > 12) {
+      return '${location.substring(0, 12)}...';
+    }
+    return location;
+  }
+
+  Widget _buildInfoItem(
+    IconData icon, 
+    String text, 
+    Color color, {
+    String? customImage,
+    bool isLoading = false,
+    bool hasError = false,
+  }) {
     return Flexible(
       child: Column(
         children: [
-          // Usar imagen personalizada si está disponible, sino usar icono
           if (customImage != null)
             Container(
               width: 32,
               height: 32,
-              child: Image.asset(
-                customImage,
-                width: 32,
-                height: 32,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  // Si falla cargar la imagen, usar el icono por defecto
-                  return Icon(
-                    icon,
-                    color: color,
-                    size: 32,
-                  );
-                },
-              ),
+              child: isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : hasError
+                  ? Icon(
+                      Icons.refresh,
+                      color: color,
+                      size: 32,
+                    )
+                  : Image.asset(
+                      customImage,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          icon,
+                          color: color,
+                          size: 32,
+                        );
+                      },
+                    ),
             )
           else
-            Icon(
-              icon,
-              color: color,
-              size: 32,
-            ),
+            isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(
+                  hasError ? Icons.refresh : icon,
+                  color: color,
+                  size: 32,
+                ),
           const SizedBox(height: 8),
-          Text(
-            text,
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          isLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text(
+                text,
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: hasError ? Colors.red : Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
         ],
       ),
     );
@@ -232,14 +535,17 @@ class _MainDashboardState extends State<MainDashboard> {
         children: [
           Row(
             children: [
-              Icon(
-                currentTemperature > 35 ? Icons.warning_amber : Icons.check_circle,
-                color: Colors.white,
-                size: 20,
-              ),
+              if (currentTemp != null)
+                Icon(
+                  currentTemp! > 35 ? Icons.warning_amber : Icons.check_circle,
+                  color: Colors.white,
+                  size: 20,
+                ),
               const SizedBox(width: 8),
               Text(
-                'Según tu temperatura actual',
+                currentTemp != null
+                  ? 'Según tu temperatura actual'
+                  : 'Información de clima',
                 style: GoogleFonts.outfit(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -250,9 +556,13 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
           const SizedBox(height: 8),
           Text(
-            currentTemperature > 35 
-                ? 'No es recomendable aplicar agua al cultivo justo ahora.'
-                : 'Es un buen momento para regar tu cultivo.',
+            currentTemp != null
+              ? currentTemp! > 35 
+                  ? 'No es recomendable aplicar agua al cultivo ahora'
+                  : 'Es buen momento para regar tu cultivo'
+              : hasLocationError
+                ? 'Toca el ícono de ubicación para reintentar'
+                : 'Obteniendo datos meteorológicos...',
             style: GoogleFonts.outfit(
               fontSize: 14,
               color: Colors.white,
@@ -263,6 +573,7 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  // [El resto de los métodos permanecen igual...]
   Widget _buildOptionsGrid() {
     final options = [
       {
@@ -374,7 +685,6 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildOptionIcon(Map<String, dynamic> option) {
-    // Prioridad: imagen personalizada > icono por defecto
     if (option['imageIcon'] != null) {
       return ClipOval(
         child: Container(
@@ -390,7 +700,6 @@ class _MainDashboardState extends State<MainDashboard> {
             height: 30,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
-              // Si falla cargar la imagen, usa el icono por defecto
               return Icon(
                 option['icon'] as IconData,
                 color: option['color'] as Color,
@@ -401,7 +710,6 @@ class _MainDashboardState extends State<MainDashboard> {
         ),
       );
     } else {
-      // Usar icono por defecto de Material Icons
       return Icon(
         option['icon'] as IconData,
         color: option['color'] as Color,
@@ -543,8 +851,8 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  // [Resto de métodos de navegación y diálogos permanecen igual...]
   void _handleOptionTap(String action) {
-    // Manejo más específico de cada acción
     switch (action) {
       case 'preparacion_tierra':
         _navigateToPreparacionTierra();
@@ -572,7 +880,6 @@ class _MainDashboardState extends State<MainDashboard> {
   void _handleBottomNavTap(int index) {
     switch (index) {
       case 0:
-        // Ya estamos en inicio
         break;
       case 1:
         _navigateToMiCultivo();
@@ -586,7 +893,6 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  // Métodos de navegación específicos
   void _navigateToPreparacionTierra() {
     _showFeatureDialog('Preparación de Tierra', 
         'Aprende cómo preparar la tierra correctamente para tu cultivo de $userCrop.');
@@ -700,14 +1006,14 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-void _handleDoctorCultivo() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => PlantDiagnosisScreen(),
-    ),
-  );
-}
+  void _handleDoctorCultivo() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PlantDiagnosisScreen(),
+      ),
+    );
+  }
 
   void _showCameraOptions() {
     showModalBottomSheet(
