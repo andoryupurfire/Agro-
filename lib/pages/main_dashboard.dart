@@ -20,7 +20,7 @@ class _MainDashboardState extends State<MainDashboard> {
   int _selectedIndex = 0;
 
   // Datos simulados para la demostración
-  String get userName => widget.userData?['name'] ?? 'Luis Diaz';
+  String get userName => widget.userData?['name'] ?? 'Brayan';
   String get userLocation => widget.userData?['location'] ?? 'Barrancabermeja';
   String get userCrop => widget.userData?['selectedCrop'] ?? 'Tomate';
   
@@ -131,7 +131,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   Icons.thermostat_outlined,
                   '${currentTemperature}°C',
                   Colors.orange,
-                  customImage: 'assets/images/icono_tomate.png', // Tu icono personalizado
+                  customImage: 'assets/images/temperatura.png', // Tu icono personalizado
                 ),
                 
                 // Cultivo
@@ -139,7 +139,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   Icons.local_florist,
                   userCrop,
                   const Color(0xff2E7D32),
-                  customImage: 'assets/icons/tomato.png', // Tu icono personalizado
+                  customImage: 'assets/images/icono_tomate.png', // Tu icono personalizado
                 ),
                 
                 // Ubicación
@@ -147,7 +147,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   Icons.location_on,
                   userLocation.length > 8 ? '${userLocation.substring(0, 8)}...' : userLocation,
                   Colors.red,
-                  customImage: 'assets/icons/location.png', // Tu icono personalizado
+                  customImage: 'assets/icons/ubicacion.png', // Tu icono personalizado
                 ),
               ],
             ),

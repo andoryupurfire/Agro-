@@ -1,5 +1,4 @@
-
-// 2. Crea este archivo: lib/screens/plant_diagnosis_screen.dart
+// lib/screens/plant_diagnosis_screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,6 +15,7 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
   bool _isLoading = false;
   PlantIdentificationResult? _identificationResult;
   PlantHealthResult? _healthResult;
+  String? _errorMessage;
   final PlantIDService _plantService = PlantIDService();
   final ImagePicker _picker = ImagePicker();
 
@@ -44,7 +44,9 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
             const SizedBox(height: 20),
             _buildActionButtons(),
             const SizedBox(height: 20),
+            if (_selectedImage != null && !_isLoading) _buildAnalyzeButton(),
             if (_isLoading) _buildLoadingSection(),
+            if (_errorMessage != null) _buildErrorSection(),
             if (_identificationResult != null) _buildIdentificationResults(),
             if (_healthResult != null) _buildHealthResults(),
           ],
@@ -137,6 +139,28 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
     );
   }
 
+  Widget _buildAnalyzeButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _analyzeImage,
+        icon: const Icon(Icons.analytics),
+        label: Text(
+          'Analizar Planta',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xff2E7D32),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLoadingSection() {
     return Container(
       width: double.infinity,
@@ -156,6 +180,70 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
             style: GoogleFonts.outfit(
               fontSize: 16,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Esto puede tomar unos segundos',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: Colors.red.shade600,
+            size: 48,
+          ),
+          const SizedBox(height: 15),
+          Text(
+            'Error al analizar la imagen',
+            style: GoogleFonts.outfit(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.red.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _errorMessage!,
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: Colors.red.shade600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 15),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _errorMessage = null;
+              });
+              _analyzeImage();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Reintentar',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -208,9 +296,25 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
               _buildPlantSuggestionCard(suggestion)
             ).toList())
           else
-            Text(
-              'No se pudo identificar la planta con certeza.',
-              style: GoogleFonts.outfit(color: Colors.grey.shade600),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade600),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'No se pudo identificar la planta con certeza. Intenta con una imagen más clara.',
+                      style: GoogleFonts.outfit(color: Colors.orange.shade700),
+                    ),
+                  ),
+                ],
+              ),
             ),
         ],
       ),
@@ -457,10 +561,8 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
           _selectedImage = File(image.path);
           _identificationResult = null;
           _healthResult = null;
+          _errorMessage = null;
         });
-        
-        // Analizar automáticamente la imagen
-        await _analyzeImage();
       }
     } catch (e) {
       _showErrorSnackBar('Error al seleccionar imagen: $e');
@@ -472,26 +574,53 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
     
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
+      _identificationResult = null;
+      _healthResult = null;
     });
     
     try {
-      // Ejecutar ambos análisis en paralelo
-      final results = await Future.wait([
-        _plantService.identifyPlant(_selectedImage!),
-        _plantService.checkPlantHealth(_selectedImage!),
-      ]);
+      // Ejecutar identificación primero
+      final identificationResult = await _plantService.identifyPlant(_selectedImage!);
       
       setState(() {
-        _identificationResult = results[0] as PlantIdentificationResult;
-        _healthResult = results[1] as PlantHealthResult;
+        _identificationResult = identificationResult;
+      });
+      
+      // Luego ejecutar análisis de salud
+      try {
+        final healthResult = await _plantService.checkPlantHealth(_selectedImage!);
+        setState(() {
+          _healthResult = healthResult;
+        });
+      } catch (e) {
+        print('Error en análisis de salud (no crítico): $e');
+        // Continuar sin análisis de salud
+      }
+      
+      setState(() {
         _isLoading = false;
       });
       
     } catch (e) {
       setState(() {
         _isLoading = false;
+        _errorMessage = _getErrorMessage(e.toString());
       });
-      _showErrorSnackBar('Error al analizar la imagen: $e');
+    }
+  }
+
+  String _getErrorMessage(String error) {
+    if (error.contains('Failed host lookup')) {
+      return 'Sin conexión a internet. Verifica tu conexión y vuelve a intentar.';
+    } else if (error.contains('API key')) {
+      return 'API key no configurada. Contacta al desarrollador.';
+    } else if (error.contains('timeout')) {
+      return 'La conexión tardó demasiado. Intenta de nuevo.';
+    } else if (error.contains('402') || error.contains('quota')) {
+      return 'Límite de uso alcanzado. Intenta más tarde.';
+    } else {
+      return 'Error desconocido. Intenta de nuevo.';
     }
   }
 

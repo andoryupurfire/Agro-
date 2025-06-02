@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 class PlantIDService {
   static const String _apiKey = 'rB9YbIVsq6HMF0te1XoRGNtZtu1kMrMVLdY0nLjC73GZiSD1S7'; // Reemplaza con tu API key
-  static const String _baseUrl = 'https://plant.id/api/v3';
+  static const String _baseUrl = 'https://api.plant.id/v2/identify';
   
   Future<PlantIdentificationResult> identifyPlant(File imageFile) async {
     try {
@@ -178,5 +178,3 @@ class DiseaseSuggestion {
     );
   }
 }
-
-
