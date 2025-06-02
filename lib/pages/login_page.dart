@@ -2,6 +2,8 @@ import 'package:agro_mas/pages/user_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'register_page.dart';
+import 'main_dashboard.dart';
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -25,46 +27,49 @@ class _LoginPageState extends State<LoginPage> {
   };
 
   // Método para manejar el inicio de sesión
-  void _handleLogin() {
-    String email = _emailController.text.trim();
-    String password = _passwordController.text.trim();
+// Reemplaza el método _handleLogin en tu LoginPage con este:
+void _handleLogin() {
+  String email = _emailController.text.trim();
+  String password = _passwordController.text.trim();
 
-    // Validar campos vacíos
-    if (email.isEmpty || password.isEmpty) {
-      _showErrorMessage('Por favor completa todos los campos');
-      return;
-    }
-
-    // Primero verificar credenciales por defecto
-    bool isDefaultUser = _defaultCredentials.containsKey(email) &&
-        _defaultCredentials[email] == password;
-
-    // Luego verificar usuarios registrados en UserStorage
-    bool isRegisteredUser = _userStorage.validateCredentials(email, password);
-
-    if (isDefaultUser || isRegisteredUser) {
-      // Obtener información del usuario si está registrado
-      Map<String, dynamic>? userData;
-      if (isRegisteredUser) {
-        userData = _userStorage.getUserByEmail(email);
-      }
-
-      // Navegar a la página de inicio si las credenciales son correctas
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomePage(
-            email: email,
-            userData: userData,
-          ),
-        ),
-      );
-    } else {
-      // Mostrar mensaje de error
-      _showErrorMessage('Correo o contraseña incorrectos');
-    }
+  // Validar campos vacíos
+  if (email.isEmpty || password.isEmpty) {
+    _showErrorMessage('Por favor completa todos los campos');
+    return;
   }
 
+  // Primero verificar credenciales por defecto
+  bool isDefaultUser = _defaultCredentials.containsKey(email) &&
+      _defaultCredentials[email] == password;
+
+  // Luego verificar usuarios registrados en UserStorage
+  bool isRegisteredUser = _userStorage.validateCredentials(email, password);
+
+  if (isDefaultUser || isRegisteredUser) {
+    // Obtener información del usuario si está registrado
+    Map<String, dynamic>? userData;
+    if (isRegisteredUser) {
+      userData = _userStorage.getUserByEmail(email);
+    }
+
+    // Navegar al nuevo dashboard principal
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MainDashboard(
+          email: email,
+          userData: userData,
+        ),
+      ),
+    );
+  } else {
+    // Mostrar mensaje de error
+    _showErrorMessage('Correo o contraseña incorrectos');
+  }
+}
+
+// No olvides importar el nuevo dashboard al inicio del archivo:
+// import 'main_dashboard.dart';
   // Método para mostrar mensajes de error
   void _showErrorMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
