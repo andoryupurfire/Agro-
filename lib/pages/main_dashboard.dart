@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:agro_mas/pages/PreparacionTierraScreen.dart';
+import 'package:agro_mas/pages/SiembraScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -52,7 +54,7 @@ class _MainDashboardState extends State<MainDashboard> {
           currentLocation = 'GPS desactivado';
           isLoadingLocation = false;
         });
-        
+
         // Mostrar diálogo para activar GPS
         _showLocationServiceDialog();
         return;
@@ -60,15 +62,15 @@ class _MainDashboardState extends State<MainDashboard> {
 
       // 2. Verificar permisos actuales
       LocationPermission permission = await Geolocator.checkPermission();
-      
+
       // 3. Si el permiso está denegado, solicitarlo
       if (permission == LocationPermission.denied) {
         setState(() {
           currentLocation = 'Solicitando permisos...';
         });
-        
+
         permission = await Geolocator.requestPermission();
-        
+
         if (permission == LocationPermission.denied) {
           setState(() {
             hasLocationError = true;
@@ -110,7 +112,6 @@ class _MainDashboardState extends State<MainDashboard> {
 
       // 6. Obtener datos del clima
       await _getWeatherData(position.latitude, position.longitude);
-      
     } catch (e) {
       print('Error obteniendo ubicación: $e');
       setState(() {
@@ -118,7 +119,7 @@ class _MainDashboardState extends State<MainDashboard> {
         currentLocation = 'Error de ubicación';
         isLoadingLocation = false;
       });
-      
+
       // Intentar usar ubicación aproximada como fallback
       _tryLastKnownPosition();
     }
@@ -128,7 +129,8 @@ class _MainDashboardState extends State<MainDashboard> {
     try {
       Position? lastPosition = await Geolocator.getLastKnownPosition();
       if (lastPosition != null) {
-        print('Usando última ubicación conocida: ${lastPosition.latitude}, ${lastPosition.longitude}');
+        print(
+            'Usando última ubicación conocida: ${lastPosition.latitude}, ${lastPosition.longitude}');
         await _getWeatherData(lastPosition.latitude, lastPosition.longitude);
       }
     } catch (e) {
@@ -154,9 +156,9 @@ class _MainDashboardState extends State<MainDashboard> {
       });
 
       final response = await http.get(url).timeout(
-        const Duration(seconds: 10),
-      );
-      
+            const Duration(seconds: 10),
+          );
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
@@ -210,7 +212,8 @@ class _MainDashboardState extends State<MainDashboard> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff2E7D32),
               ),
-              child: Text('Abrir Configuración', style: GoogleFonts.outfit(color: Colors.white)),
+              child: Text('Abrir Configuración',
+                  style: GoogleFonts.outfit(color: Colors.white)),
             ),
           ],
         );
@@ -244,7 +247,8 @@ class _MainDashboardState extends State<MainDashboard> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff2E7D32),
               ),
-              child: Text('Intentar de nuevo', style: GoogleFonts.outfit(color: Colors.white)),
+              child: Text('Intentar de nuevo',
+                  style: GoogleFonts.outfit(color: Colors.white)),
             ),
           ],
         );
@@ -278,7 +282,8 @@ class _MainDashboardState extends State<MainDashboard> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xff2E7D32),
               ),
-              child: Text('Abrir Configuración', style: GoogleFonts.outfit(color: Colors.white)),
+              child: Text('Abrir Configuración',
+                  style: GoogleFonts.outfit(color: Colors.white)),
             ),
           ],
         );
@@ -295,7 +300,7 @@ class _MainDashboardState extends State<MainDashboard> {
           children: [
             // Header con información del usuario
             _buildHeader(),
-            
+
             // Contenido principal
             Expanded(
               child: Container(
@@ -312,9 +317,9 @@ class _MainDashboardState extends State<MainDashboard> {
                     children: [
                       // Recomendación según temperatura
                       _buildTemperatureRecommendation(),
-                      
+
                       const SizedBox(height: 24),
-                      
+
                       // Título de opciones
                       Align(
                         alignment: Alignment.centerLeft,
@@ -327,16 +332,16 @@ class _MainDashboardState extends State<MainDashboard> {
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 16),
-                      
+
                       // Grid de opciones
                       Expanded(
                         child: _buildOptionsGrid(),
                       ),
-                      
+
                       const SizedBox(height: 24),
-                      
+
                       // Doctor cultivo
                       _buildDoctorCultivo(),
                     ],
@@ -366,7 +371,7 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
           const SizedBox(height: 15),
-          
+
           // Tarjeta de información
           Container(
             padding: const EdgeInsets.all(20),
@@ -388,14 +393,14 @@ class _MainDashboardState extends State<MainDashboard> {
                 // Temperatura
                 _buildInfoItem(
                   Icons.thermostat_outlined,
-                  currentTemp != null 
-                    ? '${currentTemp!.toStringAsFixed(1)}°C' 
-                    : '--°C',
+                  currentTemp != null
+                      ? '${currentTemp!.toStringAsFixed(1)}°C'
+                      : '--°C',
                   Colors.orange,
                   customImage: 'assets/images/temperatura.png',
                   isLoading: isLoadingLocation,
                 ),
-                
+
                 // Cultivo
                 _buildInfoItem(
                   Icons.local_florist,
@@ -403,7 +408,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   const Color(0xff2E7D32),
                   customImage: 'assets/images/icono_tomate.png',
                 ),
-                
+
                 // Ubicación con botón de reintentar
                 GestureDetector(
                   onTap: hasLocationError ? _getCurrentLocation : null,
@@ -432,8 +437,8 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildInfoItem(
-    IconData icon, 
-    String text, 
+    IconData icon,
+    String text,
     Color color, {
     String? customImage,
     bool isLoading = false,
@@ -447,61 +452,61 @@ class _MainDashboardState extends State<MainDashboard> {
               width: 32,
               height: 32,
               child: isLoading
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : hasError
+                      ? Icon(
+                          Icons.refresh,
+                          color: color,
+                          size: 32,
+                        )
+                      : Image.asset(
+                          customImage,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              icon,
+                              color: color,
+                              size: 32,
+                            );
+                          },
+                        ),
+            )
+          else
+            isLoading
                 ? const SizedBox(
                     width: 24,
                     height: 24,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : hasError
-                  ? Icon(
-                      Icons.refresh,
-                      color: color,
-                      size: 32,
-                    )
-                  : Image.asset(
-                      customImage,
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          icon,
-                          color: color,
-                          size: 32,
-                        );
-                      },
-                    ),
-            )
-          else
-            isLoading
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(
-                  hasError ? Icons.refresh : icon,
-                  color: color,
-                  size: 32,
-                ),
+                : Icon(
+                    hasError ? Icons.refresh : icon,
+                    color: color,
+                    size: 32,
+                  ),
           const SizedBox(height: 8),
           isLoading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Text(
-                text,
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: hasError ? Colors.red : Colors.black87,
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  text,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: hasError ? Colors.red : Colors.black87,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
         ],
       ),
     );
@@ -512,10 +517,10 @@ class _MainDashboardState extends State<MainDashboard> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [
-            const Color(0xff4285F4),
-            const Color(0xff1976D2),
+            Color(0xff4285F4),
+            Color(0xff1976D2),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -544,8 +549,8 @@ class _MainDashboardState extends State<MainDashboard> {
               const SizedBox(width: 8),
               Text(
                 currentTemp != null
-                  ? 'Según tu temperatura actual'
-                  : 'Información de clima',
+                    ? 'Según tu temperatura actual'
+                    : 'Información de clima',
                 style: GoogleFonts.outfit(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -557,12 +562,12 @@ class _MainDashboardState extends State<MainDashboard> {
           const SizedBox(height: 8),
           Text(
             currentTemp != null
-              ? currentTemp! > 35 
-                  ? 'No es recomendable aplicar agua al cultivo ahora'
-                  : 'Es buen momento para regar tu cultivo'
-              : hasLocationError
-                ? 'Toca el ícono de ubicación para reintentar'
-                : 'Obteniendo datos meteorológicos...',
+                ? currentTemp! > 35
+                    ? 'No es recomendable aplicar agua al cultivo ahora'
+                    : 'Es buen momento para regar tu cultivo'
+                : hasLocationError
+                    ? 'Toca el ícono de ubicación para reintentar'
+                    : 'Obteniendo datos meteorológicos...',
             style: GoogleFonts.outfit(
               fontSize: 14,
               color: Colors.white,
@@ -644,7 +649,7 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget _buildOptionCard(Map<String, dynamic> option) {
     return GestureDetector(
       onTap: () => _handleOptionTap(option['action']),
-      child: Container(
+      child: SizedBox(
         width: 90,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -740,7 +745,7 @@ class _MainDashboardState extends State<MainDashboard> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: const Color(0xff4285F4), 
+                color: const Color(0xff4285F4),
                 width: 2,
               ),
               boxShadow: [
@@ -757,10 +762,10 @@ class _MainDashboardState extends State<MainDashboard> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       colors: [
-                        const Color(0xff4285F4),
-                        const Color(0xff1976D2),
+                        Color(0xff4285F4),
+                        Color(0xff1976D2),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(10),
@@ -894,47 +899,55 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _navigateToPreparacionTierra() {
-    _showFeatureDialog('Preparación de Tierra', 
-        'Aprende cómo preparar la tierra correctamente para tu cultivo de $userCrop.');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PreparacionTierraScreen(),
+      ),
+    );
   }
 
   void _navigateToSiembra() {
-    _showFeatureDialog('Siembra', 
-        'Guía paso a paso para sembrar tu $userCrop en las mejores condiciones.');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SiembraScreen(),
+      ),
+    );
   }
 
   void _navigateToConsejosCultivo() {
-    _showFeatureDialog('Consejos de Cultivo', 
+    _showFeatureDialog('Consejos de Cultivo',
         'Consejos especializados para el cuidado de tu $userCrop.');
   }
 
   void _navigateToCuidadoAgua() {
-    _showFeatureDialog('Cuidado del Agua', 
-        'Aprende sobre riego y manejo del agua para tu cultivo.');
+    _showFeatureDialog('Cuidado del Agua',
+        'Aprende sobre riego y manejo del agua par|a tu cultivo.');
   }
 
   void _navigateToPrevencionPlagas() {
-    _showFeatureDialog('Prevención de Plagas', 
+    _showFeatureDialog('Prevención de Plagas',
         'Identifica y prevé plagas comunes en el cultivo de $userCrop.');
   }
 
   void _navigateToCosecha() {
-    _showFeatureDialog('Cosecha', 
-        'Guía para cosechar tu $userCrop en el momento perfecto.');
+    _showFeatureDialog(
+        'Cosecha', 'Guía para cosechar tu $userCrop en el momento perfecto.');
   }
 
   void _navigateToMiCultivo() {
-    _showFeatureDialog('Mi Cultivo', 
+    _showFeatureDialog('Mi Cultivo',
         'Aquí podrás ver el progreso y estado de tu cultivo de $userCrop.');
   }
 
   void _navigateToForo() {
-    _showFeatureDialog('Foro', 
-        'Conecta con otros agricultores y comparte experiencias.');
+    _showFeatureDialog(
+        'Foro', 'Conecta con otros agricultores y comparte experiencias.');
   }
 
   void _navigateToMiPerfil() {
-    _showFeatureDialog('Mi Perfil', 
+    _showFeatureDialog('Mi Perfil',
         'Gestiona tu información personal y configuración de la app.');
   }
 
@@ -1047,7 +1060,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library, color: Color(0xff4285F4)),
+                leading:
+                    const Icon(Icons.photo_library, color: Color(0xff4285F4)),
                 title: Text(
                   'Seleccionar de galería',
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
