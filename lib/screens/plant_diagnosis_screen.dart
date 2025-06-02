@@ -13,7 +13,6 @@ class PlantDiagnosisScreen extends StatefulWidget {
 class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
   File? _selectedImage;
   bool _isLoading = false;
-  PlantIdentificationResult? _identificationResult;
   PlantHealthResult? _healthResult;
   String? _errorMessage;
   final PlantIDService _plantService = PlantIDService();
@@ -47,7 +46,6 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
             if (_selectedImage != null && !_isLoading) _buildAnalyzeButton(),
             if (_isLoading) _buildLoadingSection(),
             if (_errorMessage != null) _buildErrorSection(),
-            if (_identificationResult != null) _buildIdentificationResults(),
             if (_healthResult != null) _buildHealthResults(),
           ],
         ),
@@ -144,9 +142,9 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: _analyzeImage,
-        icon: const Icon(Icons.analytics),
+        icon: const Icon(Icons.local_hospital),
         label: Text(
-          'Analizar Planta',
+          'Analizar Salud de la Planta',
           style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
         ),
         style: ElevatedButton.styleFrom(
@@ -176,7 +174,7 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
           ),
           const SizedBox(height: 15),
           Text(
-            'Analizando tu planta...',
+            'Analizando la salud de tu planta...',
             style: GoogleFonts.outfit(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -251,154 +249,11 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
     );
   }
 
-  Widget _buildIdentificationResults() {
-    if (_identificationResult == null) return Container();
-    
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.eco,
-                color: const Color(0xff2E7D32),
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Identificación de Planta',
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xff2E7D32),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          
-          if (_identificationResult!.suggestions.isNotEmpty)
-            ...(_identificationResult!.suggestions.take(3).map((suggestion) => 
-              _buildPlantSuggestionCard(suggestion)
-            ).toList())
-          else
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.orange.shade600),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'No se pudo identificar la planta con certeza. Intenta con una imagen más clara.',
-                      style: GoogleFonts.outfit(color: Colors.orange.shade700),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlantSuggestionCard(PlantSuggestion suggestion) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  suggestion.plantName.isNotEmpty 
-                      ? suggestion.plantName 
-                      : 'Planta no identificada',
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getProbabilityColor(suggestion.probability),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${(suggestion.probability * 100).toInt()}%',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
-          if (suggestion.commonNames.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Nombres comunes: ${suggestion.commonNames.take(3).join(', ')}',
-              style: GoogleFonts.outfit(
-                color: Colors.grey.shade600,
-                fontSize: 14,
-              ),
-            ),
-          ],
-          
-          if (suggestion.description != null && suggestion.description!.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              suggestion.description!.length > 150
-                  ? '${suggestion.description!.substring(0, 150)}...'
-                  : suggestion.description!,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                color: Colors.black87,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildHealthResults() {
     if (_healthResult == null) return Container();
     
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -469,19 +324,22 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
             ),
           ),
           
-          if (_healthResult!.diseases.isNotEmpty) ...[
+          // Filtrar enfermedades con probabilidad mayor al 50%
+          if (_healthResult!.diseases.where((disease) => disease.probability > 0.5).isNotEmpty) ...[
             const SizedBox(height: 15),
             Text(
-              'Posibles problemas detectados:',
+              'Problemas detectados:',
               style: GoogleFonts.outfit(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 10),
-            ...(_healthResult!.diseases.take(3).map((disease) => 
-              _buildDiseaseCard(disease)
-            ).toList()),
+            ...(_healthResult!.diseases
+                .where((disease) => disease.probability > 0.5)
+                .take(3)
+                .map((disease) => _buildDiseaseCard(disease))
+                .toList()),
           ],
         ],
       ),
@@ -505,7 +363,7 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
             children: [
               Expanded(
                 child: Text(
-                  disease.name,
+                  _translateDiseaseName(disease.name),
                   style: GoogleFonts.outfit(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -527,9 +385,9 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
           if (disease.description != null && disease.description!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              disease.description!.length > 100
-                  ? '${disease.description!.substring(0, 100)}...'
-                  : disease.description!,
+              _translateDescription(disease.description!).length > 150
+                  ? '${_translateDescription(disease.description!).substring(0, 150)}...'
+                  : _translateDescription(disease.description!),
               style: GoogleFonts.outfit(
                 fontSize: 13,
                 color: Colors.red.shade600,
@@ -541,10 +399,66 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
     );
   }
 
-  Color _getProbabilityColor(double probability) {
-    if (probability >= 0.8) return Colors.green;
-    if (probability >= 0.6) return Colors.orange;
-    return Colors.red;
+  // Función para traducir nombres de enfermedades comunes
+  String _translateDiseaseName(String diseaseName) {
+    final translations = {
+      'leaf spot': 'Mancha foliar',
+      'powdery mildew': 'Oídio',
+      'blight': 'Tizón',
+      'rust': 'Roya',
+      'bacterial wilt': 'Marchitez bacteriana',
+      'viral infection': 'Infección viral',
+      'fungal infection': 'Infección por hongos',
+      'aphids': 'Pulgones',
+      'spider mites': 'Ácaros',
+      'scale insects': 'Cochinillas',
+      'nutrient deficiency': 'Deficiencia de nutrientes',
+      'overwatering': 'Exceso de riego',
+      'underwatering': 'Falta de riego',
+      'sunburn': 'Quemadura solar',
+      'root rot': 'Pudrición de raíces',
+    };
+    
+    String translated = diseaseName.toLowerCase();
+    translations.forEach((key, value) {
+      translated = translated.replaceAll(key, value);
+    });
+    
+    return translated.split(' ').map((word) => 
+      word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1)
+    ).join(' ');
+  }
+
+  // Función para traducir descripciones básicas
+  String _translateDescription(String description) {
+    final translations = {
+      'leaf': 'hoja',
+      'leaves': 'hojas',
+      'plant': 'planta',
+      'disease': 'enfermedad',
+      'infection': 'infección',
+      'fungal': 'por hongos',
+      'bacterial': 'bacteriana',
+      'viral': 'viral',
+      'spots': 'manchas',
+      'yellowing': 'amarillamiento',
+      'wilting': 'marchitez',
+      'damage': 'daño',
+      'growth': 'crecimiento',
+      'water': 'agua',
+      'nutrients': 'nutrientes',
+      'sun': 'sol',
+      'light': 'luz',
+      'soil': 'suelo',
+      'roots': 'raíces',
+    };
+    
+    String translated = description.toLowerCase();
+    translations.forEach((key, value) {
+      translated = translated.replaceAll(key, value);
+    });
+    
+    return translated;
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -559,7 +473,6 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
-          _identificationResult = null;
           _healthResult = null;
           _errorMessage = null;
         });
@@ -575,30 +488,14 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _identificationResult = null;
       _healthResult = null;
     });
     
     try {
-      // Ejecutar identificación primero
-      final identificationResult = await _plantService.identifyPlant(_selectedImage!);
-      
+      // Solo ejecutar análisis de salud
+      final healthResult = await _plantService.checkPlantHealth(_selectedImage!);
       setState(() {
-        _identificationResult = identificationResult;
-      });
-      
-      // Luego ejecutar análisis de salud
-      try {
-        final healthResult = await _plantService.checkPlantHealth(_selectedImage!);
-        setState(() {
-          _healthResult = healthResult;
-        });
-      } catch (e) {
-        print('Error en análisis de salud (no crítico): $e');
-        // Continuar sin análisis de salud
-      }
-      
-      setState(() {
+        _healthResult = healthResult;
         _isLoading = false;
       });
       
@@ -614,7 +511,7 @@ class _PlantDiagnosisScreenState extends State<PlantDiagnosisScreen> {
     if (error.contains('Failed host lookup')) {
       return 'Sin conexión a internet. Verifica tu conexión y vuelve a intentar.';
     } else if (error.contains('API key')) {
-      return 'API key no configurada. Contacta al desarrollador.';
+      return 'Clave de API no configurada. Contacta al desarrollador.';
     } else if (error.contains('timeout')) {
       return 'La conexión tardó demasiado. Intenta de nuevo.';
     } else if (error.contains('402') || error.contains('quota')) {

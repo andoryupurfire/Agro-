@@ -22,7 +22,7 @@ class PlantIDService {
           'Api-Key': _apiKey,
         },
         body: jsonEncode({
-          'images': [base64WithPrefix], // Usar imagen con prefix
+          'images': [base64WithPrefix],
           'modifiers': ["crops_fast", "similar_images"],
           'plant_details': [
             "common_names",
@@ -55,7 +55,6 @@ class PlantIDService {
       List<int> imageBytes = await imageFile.readAsBytes();
       String base64Image = base64Encode(imageBytes);
       
-      // Agregar data: prefix para base64
       String base64WithPrefix = 'data:image/jpeg;base64,$base64Image';
       
       final response = await http.post(
@@ -65,8 +64,8 @@ class PlantIDService {
           'Api-Key': _apiKey,
         },
         body: jsonEncode({
-          'images': [base64WithPrefix], // Usar imagen con prefix
-          'modifiers': ["crops_fast", "similar_images"],
+          'images': [base64WithPrefix],
+          'modifiers': ["health_only", "similar_images"], // Cambiado para salud
           'disease_details': ["common_names", "url", "description"]
         }),
       );
@@ -88,7 +87,6 @@ class PlantIDService {
   }
 }
 
-// Modelos de datos mejorados con validación
 class PlantIdentificationResult {
   final bool isPlant;
   final double probability;
@@ -213,10 +211,27 @@ class PlantHealthResult {
     try {
       print('Parsing PlantHealthResult: $json');
       
+      // CORRECCIÓN: Los datos de salud están en health_assessment
+      Map<String, dynamic>? healthAssessment = json['health_assessment'];
+      
+      if (healthAssessment == null) {
+        return PlantHealthResult(
+          isHealthy: true,
+          healthyProbability: 0.0,
+          diseases: [],
+        );
+      }
+      
+      // Parsear enfermedades desde health_assessment.diseases
+      List<DiseaseSuggestion> diseases = _parseDiseases(healthAssessment['diseases']);
+      
+      bool isHealthy = healthAssessment['is_healthy'] ?? true;
+      double healthyProbability = PlantIdentificationResult._parseDouble(healthAssessment['is_healthy_probability']);
+      
       return PlantHealthResult(
-        isHealthy: json['is_healthy'] ?? true,
-        healthyProbability: PlantIdentificationResult._parseDouble(json['is_healthy_probability']),
-        diseases: _parseDiseases(json['suggestions']),
+        isHealthy: isHealthy,
+        healthyProbability: healthyProbability,
+        diseases: diseases,
       );
     } catch (e) {
       print('Error parsing PlantHealthResult: $e');
@@ -224,17 +239,39 @@ class PlantHealthResult {
     }
   }
   
-  static List<DiseaseSuggestion> _parseDiseases(dynamic suggestions) {
-    if (suggestions == null) return [];
+  static List<DiseaseSuggestion> _parseDiseases(dynamic diseases) {
+    if (diseases == null) return [];
     
     try {
-      return (suggestions as List)
-          .map((s) => DiseaseSuggestion.fromJson(s as Map<String, dynamic>))
+      return (diseases as List)
+          .map((d) => DiseaseSuggestion.fromJson(d as Map<String, dynamic>))
+          .where((disease) => disease.probability > 0.1) // Filtrar enfermedades con baja probabilidad
           .toList();
     } catch (e) {
       print('Error parsing diseases: $e');
       return [];
     }
+  }
+  
+  // Método para obtener mensaje de estado de salud
+  String getHealthMessage() {
+    if (isHealthy && diseases.isEmpty) {
+      return "¡La planta está sana! 🌱";
+    } else if (diseases.isNotEmpty) {
+      String diseaseNames = diseases.map((d) => d.name).join(', ');
+      return "La planta tiene: $diseaseNames";
+    } else {
+      return "Estado de salud incierto";
+    }
+  }
+  
+  // Método para obtener la enfermedad principal
+  DiseaseSuggestion? getPrimaryDisease() {
+    if (diseases.isEmpty) return null;
+    
+    // Retornar la enfermedad con mayor probabilidad
+    diseases.sort((a, b) => b.probability.compareTo(a.probability));
+    return diseases.first;
   }
 }
 
@@ -243,14 +280,14 @@ class DiseaseSuggestion {
   final String name;
   final double probability;
   final String? description;
-  final List<String> commonNames;
+  final List<String> similarImages;
   
   DiseaseSuggestion({
     required this.id,
     required this.name,
     required this.probability,
     this.description,
-    required this.commonNames,
+    required this.similarImages,
   });
   
   factory DiseaseSuggestion.fromJson(Map<String, dynamic> json) {
@@ -258,15 +295,34 @@ class DiseaseSuggestion {
       print('Parsing DiseaseSuggestion: $json');
       
       return DiseaseSuggestion(
-        id: json['id']?.toString() ?? '',
-        name: json['name']?.toString() ?? '',
+        id: json['id']?.toString() ?? json['name']?.toString() ?? '',
+        name: json['name']?.toString() ?? 'Enfermedad desconocida',
         probability: PlantIdentificationResult._parseDouble(json['probability']),
-        description: json['disease_details']?['description']?.toString(),
-        commonNames: PlantSuggestion._parseStringList(json['disease_details']?['common_names']),
+        description: json['description']?.toString(),
+        similarImages: _parseSimilarImages(json['similar_images']),
       );
     } catch (e) {
       print('Error parsing DiseaseSuggestion: $e');
       throw Exception('Error al procesar sugerencia de enfermedad: $e');
     }
+  }
+  
+  static List<String> _parseSimilarImages(dynamic images) {
+    if (images == null) return [];
+    
+    try {
+      return (images as List)
+          .map((img) => img['url']?.toString() ?? '')
+          .where((url) => url.isNotEmpty)
+          .toList();
+    } catch (e) {
+      print('Error parsing similar images: $e');
+      return [];
+    }
+  }
+  
+  // Método para obtener el porcentaje formateado
+  String getProbabilityPercentage() {
+    return '${(probability * 100).toStringAsFixed(1)}%';
   }
 }
