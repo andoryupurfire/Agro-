@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:agro_mas/pages/MyCropDashboard%20.dart';
 import 'package:agro_mas/pages/PreparacionTierraScreen.dart';
 import 'package:agro_mas/pages/SiembraScreen.dart';
 import 'package:agro_mas/pages/TomatoAdviceScreen.dart';
@@ -957,8 +958,12 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _navigateToMiCultivo() {
-    _showFeatureDialog('Mi Cultivo',
-        'Aquí podrás ver el progreso y estado de tu cultivo de $userCrop.');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MyCropDashboard(),
+      ),
+    );
   }
 
   void _navigateToForo() {
