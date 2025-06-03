@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'package:agro_mas/pages/PreparacionTierraScreen.dart';
 import 'package:agro_mas/pages/SiembraScreen.dart';
+import 'package:agro_mas/pages/TomatoAdviceScreen.dart';
+import 'package:agro_mas/pages/TomatoHarvestScreen.dart';
+import 'package:agro_mas/pages/TomatoPestPreventionScreen.dart';
+import 'package:agro_mas/pages/WaterCareScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -448,7 +452,7 @@ class _MainDashboardState extends State<MainDashboard> {
       child: Column(
         children: [
           if (customImage != null)
-            Container(
+            SizedBox(
               width: 32,
               height: 32,
               child: isLoading
@@ -917,23 +921,39 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _navigateToConsejosCultivo() {
-    _showFeatureDialog('Consejos de Cultivo',
-        'Consejos especializados para el cuidado de tu $userCrop.');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TomatoAdviceScreen(),
+      ),
+    );
   }
 
   void _navigateToCuidadoAgua() {
-    _showFeatureDialog('Cuidado del Agua',
-        'Aprende sobre riego y manejo del agua par|a tu cultivo.');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const WaterCareScreen(),
+      ),
+    );
   }
 
   void _navigateToPrevencionPlagas() {
-    _showFeatureDialog('Prevención de Plagas',
-        'Identifica y prevé plagas comunes en el cultivo de $userCrop.');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TomatoPestPreventionScreen(),
+      ),
+    );
   }
 
   void _navigateToCosecha() {
-    _showFeatureDialog(
-        'Cosecha', 'Guía para cosechar tu $userCrop en el momento perfecto.');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const TomatoHarvestScreen(),
+      ),
+    );
   }
 
   void _navigateToMiCultivo() {
